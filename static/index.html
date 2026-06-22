@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Website Automation Agent</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div class="brand-text">
+          <h1>Website Automation Agent</h1>
+          <p class="brand-sub">Vision-driven browser control</p>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="model" id="model" hidden>
+          <span class="model-key">model</span>
+          <span class="model-name mono" id="model-name">—</span>
+        </div>
+        <div class="status" id="status" data-state="idle">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span class="status-label" id="status-label">Idle</span>
+        </div>
+        <button id="run" class="btn-primary" type="button">Run Agent</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel panel-log" aria-label="Action log">
+        <div class="panel-head">
+          <h2>Action Log</h2>
+          <span class="counter" id="step-counter">0 steps</span>
+        </div>
+        <ol class="log" id="log">
+          <li class="log-empty" id="log-empty">
+            Press <strong>Run Agent</strong> to start a session. Each step will
+            appear here as the agent decides and acts.
+          </li>
+        </ol>
+      </section>
+
+      <section class="panel panel-view" aria-label="Live screenshot">
+        <div class="panel-head">
+          <h2>Live View</h2>
+          <span class="counter mono" id="view-meta">—</span>
+        </div>
+        <div class="viewport" id="viewport">
+          <div class="viewport-empty" id="viewport-empty">
+            The agent's current screen will appear here.
+          </div>
+          <img id="screenshot" alt="Agent screenshot" />
+        </div>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
