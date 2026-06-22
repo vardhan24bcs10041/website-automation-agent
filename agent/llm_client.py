@@ -9,6 +9,7 @@ the agent can keep running.
 
 from __future__ import annotations
 
+import time
 from typing import Any, Dict, List, Optional
 
 from google import genai
@@ -201,16 +202,24 @@ class GeminiClient:
         text = str(exc).upper()
         return "RESOURCE_EXHAUSTED" in text or "429" in text
 
-    def _is_unavailable(self, exc: Exception) -> bool:
+    def _is_not_found(self, exc: Exception) -> bool:
         if self._status_code(exc) == 404:
             return True
         return "NOT_FOUND" in str(exc).upper()
 
-    def next_action(self, contents: List[types.Content]):
-        """Get Gemini's next action, rotating models on rate limits/availability.
+    def _is_server_error(self, exc: Exception) -> bool:
+        code = self._status_code(exc)
+        if code is not None and code >= 500:
+            return True
+        text = str(exc).upper()
+        return "UNAVAILABLE" in text or "OVERLOADED" in text or "INTERNAL" in text
 
-        Raises RateLimitExhausted if every usable model is rate-limited, or
-        RuntimeError if no usable model remains.
+    def next_action(self, contents: List[types.Content]):
+        """Get Gemini's next action, failing over across the model chain.
+
+        Rotates to the next model on a rate limit (429) or a transient server
+        error (5xx / overloaded), skips a model permanently if it's not found
+        (404), and raises once every usable model has been tried.
         """
         attempts = 0
         total = len(self.models)
@@ -232,16 +241,21 @@ class GeminiClient:
             except errors.APIError as exc:
                 last_exc = exc
                 if self._is_rate_limit(exc):
-                    logger.warning(
-                        "Model '%s' rate-limited — switching to next model.", model
-                    )
+                    logger.warning("Model '%s' rate-limited — switching.", model)
                     self._advance()
                     attempts += 1
                     continue
-                if self._is_unavailable(exc):
+                if self._is_server_error(exc):
                     logger.warning(
-                        "Model '%s' unavailable — skipping permanently.", model
+                        "Model '%s' overloaded/unavailable (%s) — backing off and switching.",
+                        model, self._status_code(exc),
                     )
+                    time.sleep(2)
+                    self._advance()
+                    attempts += 1
+                    continue
+                if self._is_not_found(exc):
+                    logger.warning("Model '%s' not found — skipping.", model)
                     self._unavailable.add(model)
                     self._advance()
                     attempts += 1
@@ -255,6 +269,6 @@ class GeminiClient:
                 f"Last error: {last_exc}"
             )
         raise RateLimitExhausted(
-            f"All models in the fallback chain are rate-limited ({usable!r}). "
-            f"Last error: {last_exc}"
+            f"Every model in the chain failed (rate-limited or overloaded): "
+            f"{usable!r}. Last error: {last_exc}"
         )
